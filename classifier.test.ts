@@ -65,8 +65,26 @@ test("classifies with the configured classifier thinking level and attachment co
 	assert.equal(tier, "complex");
 	assert.equal(observedOptions?.reasoningEffort, "low");
 	assert.equal(observedOptions?.temperature, undefined);
-	assert.equal(observedOptions?.maxTokens, 256);
+	assert.equal(observedOptions?.maxTokens, 4096);
 	assert.match(JSON.stringify(observedContext), /Image attachments: 2/);
+});
+
+test("caps classifier output at the model's lower token limit", async () => {
+	let observedOptions: Record<string, unknown> | undefined;
+	await classifyPrompt(
+		async (_model, _context, options) => {
+			observedOptions = options as Record<string, unknown>;
+			return response("simple");
+		},
+		{
+			model: { provider: "test", id: "small", maxTokens: 2048 } as never,
+			prompt: "hello",
+			imageCount: 0,
+			config,
+			thinkingLevel: "off",
+		},
+	);
+	assert.equal(observedOptions?.maxTokens, 2048);
 });
 
 test("surfaces provider errors", async () => {

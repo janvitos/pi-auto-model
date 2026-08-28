@@ -2,7 +2,7 @@ import type { Api, AssistantMessage, Context, Model, ModelsApiStreamOptions } fr
 import type { AutoModelConfig, ThinkingLevel, TierName } from "./config.ts";
 
 export const DEFAULT_CLASSIFIER_TIMEOUT_MS = 15_000;
-export const CLASSIFIER_MAX_TOKENS = 256;
+export const CLASSIFIER_MAX_TOKENS = 4096;
 
 export interface ClassifierRequest {
 	model: Model<Api>;
@@ -105,7 +105,7 @@ export async function classifyPrompt(
 	const options = {
 		signal: combineSignals(request.signal, timeoutMs),
 		cacheRetention: "none",
-		maxTokens: CLASSIFIER_MAX_TOKENS,
+		maxTokens: Math.min(CLASSIFIER_MAX_TOKENS, request.model.maxTokens),
 		...(request.thinkingLevel === "off" ? {} : { reasoningEffort: request.thinkingLevel }),
 	} as ModelsApiStreamOptions<Api>;
 	const response = await complete(request.model, context, options);
