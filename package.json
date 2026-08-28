@@ -1,0 +1,45 @@
+{
+  "name": "@janvitos/pi-auto-model",
+  "version": "0.1.0",
+  "description": "Route the first Pi prompt to one of two or three configured models.",
+  "type": "module",
+  "license": "MIT",
+  "author": "janvitos",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/janvitos/pi-auto-model.git"
+  },
+  "keywords": [
+    "pi-package",
+    "pi-coding-agent",
+    "model-router",
+    "models"
+  ],
+  "engines": {
+    "node": ">=22.6"
+  },
+  "files": [
+    "index.ts",
+    "classifier.ts",
+    "config.ts",
+    "router.ts",
+    "ui.ts"
+  ],
+  "publishConfig": {
+    "access": "public"
+  },
+  "scripts": {
+    "test": "node --experimental-strip-types --test *.test.ts",
+    "prepublishOnly": "npm test"
+  },
+  "peerDependencies": {
+    "@earendil-works/pi-ai": "*",
+    "@earendil-works/pi-coding-agent": "*",
+    "@earendil-works/pi-tui": "*"
+  },
+  "pi": {
+    "extensions": [
+      "./index.ts"
+    ]
+  }
+}
