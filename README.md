@@ -10,7 +10,7 @@ A Pi extension that classifies the first prompt in a new session and routes it t
 - A separately configurable classifier model and thinking level
 - The classifier may use any authenticated model, including fast or free models outside the routing scope
 - Automatic deterministic routing with no sensitivity tuning required
-- Safe fallback when classification or model selection fails
+- Interactive recovery when classification or model activation fails
 - Global configuration only
 - No rerouting of later prompts or resumed sessions
 
@@ -56,7 +56,11 @@ Configuration is stored at:
 
 ## How routing works
 
-On the first agent-bound prompt of an empty session, the extension asks the configured classifier model to return one tier label. It evaluates implied scope, investigation, data, ambiguity, constraints, consequences, and synthesis using a deterministic rubric. Pi then switches to that tier's model and thinking level before processing the task. The classifier call has a short timeout and a bounded output allowance that leaves room for reasoning tokens. If classification fails, the simple tier is used automatically.
+On the first agent-bound prompt of an empty session, the extension asks the configured classifier model to return one tier label. It evaluates implied scope, investigation, data, ambiguity, constraints, consequences, and synthesis using a deterministic rubric. Pi then switches to that tier's model and thinking level before processing the task. The classifier call has a short timeout and a bounded output allowance that leaves room for reasoning tokens.
+
+If classification fails, the selected tier model cannot be activated, or authentication fails, interactive modes ask whether to stop, use an available adjacent tier, choose a configured tier manually, or continue with the Pi model that was active before routing. No fallback preference is saved. Modes without interactive UI stop automatically.
+
+Because Pi cannot cancel from the fully expanded `before_agent_start` event, Stop is implemented as a safe soft stop: the original task and images are removed from the outgoing task-model context, tools are temporarily disabled, and the active model receives only a minimal request to acknowledge that execution stopped. This makes one small acknowledgement model call; it does not execute the original task. The classifier has already received the expanded first prompt at that point.
 
 Routing happens once per session. Existing, resumed, and already-routed sessions are left unchanged.
 

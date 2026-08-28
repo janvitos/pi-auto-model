@@ -29,6 +29,41 @@ export function getFallbackTier(config: AutoModelConfig): ModelTier {
 	return config.tiers[0];
 }
 
+export interface AdjacentTier {
+	direction: "lower" | "higher";
+	tier: ModelTier;
+}
+
+export function getAdjacentTiers(config: AutoModelConfig, name: TierName): AdjacentTier[] {
+	const index = config.tiers.findIndex((tier) => tier.name === name);
+	if (index < 0) return [];
+	const adjacent: AdjacentTier[] = [];
+	if (index > 0) adjacent.push({ direction: "lower", tier: config.tiers[index - 1] });
+	if (index < config.tiers.length - 1) {
+		adjacent.push({ direction: "higher", tier: config.tiers[index + 1] });
+	}
+	return adjacent;
+}
+
+export function availableRecoveryTiers(
+	config: AutoModelConfig,
+	available: readonly Model<Api>[],
+	scoped: readonly ScopedModelLike[],
+	excludedModelKeys: ReadonlySet<string>,
+	selectedName?: TierName,
+): Array<{ direction?: "lower" | "higher"; tier: ModelTier }> {
+	const candidates = selectedName
+		? getAdjacentTiers(config, selectedName)
+		: config.tiers.map((tier) => ({ tier }));
+	const seen = new Set<string>();
+	return candidates.filter(({ tier }) => {
+		const key = selectionKey(tier);
+		if (seen.has(key) || excludedModelKeys.has(key) || !resolveTierModel(tier, available, scoped)) return false;
+		seen.add(key);
+		return true;
+	});
+}
+
 export function selectableModels(
 	available: readonly Model<Api>[],
 	scoped: readonly ScopedModelLike[],
@@ -57,4 +92,8 @@ export function resolveTierModel(
 
 export function modelKey(model: Pick<Model<Api>, "provider" | "id">): string {
 	return `${model.provider}/${model.id}`;
+}
+
+export function selectionKey(selection: Pick<ModelSelection, "provider" | "model">): string {
+	return `${selection.provider}/${selection.model}`;
 }
