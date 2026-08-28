@@ -34,13 +34,14 @@ Run:
 /automodel
 ```
 
-Initial setup requires selecting every model and thinking level; the extension assumes no provider or model defaults. The picker respects Pi's current `enabledModels` or `--models` scope when one is active.
+On first startup or reload without a configuration, the extension directs the user to `/automodel setup`. Initial setup requires selecting every model and thinking level; the extension assumes no provider or model defaults. The tier picker respects Pi's current `enabledModels` or `--models` scope when one is active.
 
 Commands:
 
 ```text
 /automodel             Open the menu
-/automodel setup       Reconfigure tiers
+/automodel setup       Reconfigure tiers and classifier
+/automodel tiers       Reconfigure only the tiers
 /automodel classifier  Reconfigure only the classifier
 /automodel status      Show the active configuration
 /automodel on          Enable routing

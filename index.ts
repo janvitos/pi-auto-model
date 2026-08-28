@@ -30,12 +30,18 @@ export default function autoModel(pi: ExtensionAPI): void {
 		},
 	});
 
-	pi.on("session_start", async (_event, ctx) => {
+	pi.on("session_start", async (event, ctx) => {
 		const loaded = await loadConfig(configPath);
 		config = loaded.config;
 		routed = hasPriorPromptOrRoute(ctx.sessionManager.getBranch());
 		routing = false;
 		if (loaded.warning) ctx.ui.notify(loaded.warning, "warning");
+		if (!config && (event.reason === "startup" || event.reason === "reload")) {
+			ctx.ui.notify(
+				"pi-auto-model is not configured. Run /automodel setup to choose tier and classifier models.",
+				"info",
+			);
+		}
 		ctx.ui.setStatus(
 			"automodel",
 			config?.enabled ? ctx.ui.theme.fg("dim", "auto:model") : undefined,

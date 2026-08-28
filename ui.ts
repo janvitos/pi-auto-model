@@ -167,26 +167,15 @@ async function chooseThinkingLevel(
 	return await chooseOption(ctx, `Thinking level for ${purpose}`, levels, current) as ThinkingLevel | undefined;
 }
 
-export async function setupAutoModel(
+async function chooseTiers(
 	ctx: ExtensionCommandContext,
-	configPath: string,
 	current?: AutoModelConfig,
-): Promise<AutoModelConfig | undefined> {
-	if (ctx.mode !== "tui") {
-		ctx.ui.notify("/automodel setup requires TUI mode", "error");
-		return undefined;
-	}
-	const tierModels = sortedTierModels(ctx);
-	const classifierModels = sortedClassifierModels(ctx);
-	if (tierModels.length === 0) {
+): Promise<ModelTier[] | undefined> {
+	const models = sortedTierModels(ctx);
+	if (models.length === 0) {
 		ctx.ui.notify("No authenticated tier models are available in the current model scope", "error");
 		return undefined;
 	}
-	if (!current?.classifier && classifierModels.length === 0) {
-		ctx.ui.notify("No authenticated classifier models are available", "error");
-		return undefined;
-	}
-
 	const tierLayouts = ["simple / complex", "simple / standard / complex"];
 	const currentTierLayout = current?.tiers.length === 3 ? tierLayouts[1] : current ? tierLayouts[0] : undefined;
 	const tierLayout = await chooseOption(ctx, "Auto-model tiers", tierLayouts, currentTierLayout);
@@ -197,7 +186,7 @@ export async function setupAutoModel(
 	const tiers: ModelTier[] = [];
 	for (const name of names) {
 		const currentTier = current?.tiers.find((tier) => tier.name === name);
-		const model = await chooseModel(ctx, `${name} tier`, tierModels, currentTier);
+		const model = await chooseModel(ctx, `${name} tier`, models, currentTier);
 		if (!model) return undefined;
 		const currentThinkingLevel = currentTier?.provider === model.provider && currentTier.model === model.id
 			? currentTier.thinkingLevel
@@ -206,29 +195,71 @@ export async function setupAutoModel(
 		if (!thinkingLevel) return undefined;
 		tiers.push({ name, provider: model.provider, model: model.id, thinkingLevel });
 	}
+	return tiers;
+}
 
-	let classifier: ModelSelection | undefined = current?.classifier;
-	if (!classifier) {
-		const classifierModel = await chooseModel(ctx, "classifier", classifierModels);
-		if (!classifierModel) return undefined;
-		const classifierThinkingLevel = await chooseThinkingLevel(ctx, "classifier", classifierModel);
-		if (!classifierThinkingLevel) return undefined;
-		classifier = {
-			provider: classifierModel.provider,
-			model: classifierModel.id,
-			thinkingLevel: classifierThinkingLevel,
-		};
+async function chooseClassifier(
+	ctx: ExtensionCommandContext,
+	current?: ModelSelection,
+): Promise<ModelSelection | undefined> {
+	const models = sortedClassifierModels(ctx);
+	if (models.length === 0) {
+		ctx.ui.notify("No authenticated classifier models are available", "error");
+		return undefined;
 	}
+	const model = await chooseModel(ctx, "classifier", models, current);
+	if (!model) return undefined;
+	const currentThinkingLevel = current?.provider === model.provider && current.model === model.id
+		? current.thinkingLevel
+		: undefined;
+	const thinkingLevel = await chooseThinkingLevel(ctx, "classifier", model, currentThinkingLevel);
+	if (!thinkingLevel) return undefined;
+	return { provider: model.provider, model: model.id, thinkingLevel };
+}
 
-	const config: AutoModelConfig = {
+export async function setupAutoModel(
+	ctx: ExtensionCommandContext,
+	configPath: string,
+	current?: AutoModelConfig,
+): Promise<AutoModelConfig | undefined> {
+	if (ctx.mode !== "tui") {
+		ctx.ui.notify("/automodel setup requires TUI mode", "error");
+		return current;
+	}
+	const tiers = await chooseTiers(ctx, current);
+	if (!tiers) return current;
+	const classifier = await chooseClassifier(ctx, current?.classifier);
+	if (!classifier) return current;
+	const updated: AutoModelConfig = {
 		version: 1,
-		enabled: true,
+		enabled: current?.enabled ?? true,
 		classifier,
 		tiers,
 	};
-	await saveConfig(configPath, config);
-	ctx.ui.notify("Auto model configuration saved", "info");
-	return config;
+	await saveConfig(configPath, updated);
+	ctx.ui.notify("Auto model setup saved", "info");
+	return updated;
+}
+
+async function configureTiers(
+	ctx: ExtensionCommandContext,
+	configPath: string,
+	current: AutoModelConfig | undefined,
+): Promise<AutoModelConfig | undefined> {
+	if (!current) {
+		ctx.ui.notify("Run /automodel setup first", "warning");
+		return current;
+	}
+	if (ctx.mode !== "tui") {
+		ctx.ui.notify("/automodel tiers requires TUI mode", "error");
+		return current;
+	}
+	const tiers = await chooseTiers(ctx, current);
+	if (!tiers) return current;
+	const updated = { ...current, tiers };
+	await saveConfig(configPath, updated);
+	ctx.ui.notify("Tier configuration saved", "info");
+	return updated;
 }
 
 async function configureClassifier(
@@ -237,29 +268,16 @@ async function configureClassifier(
 	current: AutoModelConfig | undefined,
 ): Promise<AutoModelConfig | undefined> {
 	if (!current) {
-		ctx.ui.notify("Configure tiers first with /automodel setup", "warning");
+		ctx.ui.notify("Run /automodel setup first", "warning");
 		return current;
 	}
 	if (ctx.mode !== "tui") {
 		ctx.ui.notify("/automodel classifier requires TUI mode", "error");
 		return current;
 	}
-	const models = sortedClassifierModels(ctx);
-	if (models.length === 0) {
-		ctx.ui.notify("No authenticated classifier models are available", "error");
-		return current;
-	}
-	const model = await chooseModel(ctx, "classifier", models, current.classifier);
-	if (!model) return current;
-	const currentThinkingLevel = current.classifier.provider === model.provider && current.classifier.model === model.id
-		? current.classifier.thinkingLevel
-		: undefined;
-	const thinkingLevel = await chooseThinkingLevel(ctx, "classifier", model, currentThinkingLevel);
-	if (!thinkingLevel) return current;
-	const updated: AutoModelConfig = {
-		...current,
-		classifier: { provider: model.provider, model: model.id, thinkingLevel },
-	};
+	const classifier = await chooseClassifier(ctx, current.classifier);
+	if (!classifier) return current;
+	const updated = { ...current, classifier };
 	await saveConfig(configPath, updated);
 	ctx.ui.notify("Classifier configuration saved", "info");
 	return updated;
@@ -275,13 +293,15 @@ export async function showAutoModelMenu(
 		return current;
 	}
 	const action = await ctx.ui.select("Auto Model", [
+		"Setup",
 		"Tiers",
 		"Classifier",
 		current?.enabled ? "Disable" : "Enable",
 		"Show status",
 	]);
 	if (!action) return current;
-	if (action === "Tiers") return (await setupAutoModel(ctx, configPath, current)) ?? current;
+	if (action === "Setup") return (await setupAutoModel(ctx, configPath, current)) ?? current;
+	if (action === "Tiers") return configureTiers(ctx, configPath, current);
 	if (action === "Classifier") return configureClassifier(ctx, configPath, current);
 	if (action === "Show status") {
 		ctx.ui.notify(formatConfig(current), "info");
@@ -306,6 +326,7 @@ export async function handleAutoModelCommand(
 	const action = args.trim().toLowerCase();
 	if (action === "") return showAutoModelMenu(ctx, configPath, current);
 	if (action === "setup") return (await setupAutoModel(ctx, configPath, current)) ?? current;
+	if (action === "tiers") return configureTiers(ctx, configPath, current);
 	if (action === "classifier") return configureClassifier(ctx, configPath, current);
 	if (action === "status") {
 		ctx.ui.notify(formatConfig(current), "info");
@@ -321,6 +342,6 @@ export async function handleAutoModelCommand(
 		ctx.ui.notify(`Auto model ${updated.enabled ? "enabled" : "disabled"}`, "info");
 		return updated;
 	}
-	ctx.ui.notify("Usage: /automodel [setup|classifier|status|on|off]", "error");
+	ctx.ui.notify("Usage: /automodel [setup|tiers|classifier|status|on|off]", "error");
 	return current;
 }
