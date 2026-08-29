@@ -21,6 +21,8 @@ function response(text: string): AssistantMessage {
 
 test("strictly parses an allowed tier label", () => {
 	assert.equal(parseTierResponse("  STANDARD\n", ["simple", "standard", "complex"]), "standard");
+	assert.equal(parseTierResponse("standard", ["simple", "complex"]), "simple");
+	assert.equal(parseTierResponse("The answer is standard", ["simple", "complex"]), undefined);
 	assert.equal(parseTierResponse("The answer is standard", ["simple", "standard", "complex"]), undefined);
 });
 

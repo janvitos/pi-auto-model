@@ -56,7 +56,7 @@ Configuration is stored at:
 
 ## How routing works
 
-On the first agent-bound prompt of an empty session, the extension asks the configured classifier model to return one tier label. It evaluates implied scope, investigation, data, ambiguity, constraints, consequences, and synthesis using a deterministic rubric. Pi then switches to that tier's model and thinking level before processing the task. The classifier call has a short timeout and a bounded output allowance that leaves room for reasoning tokens.
+On the first agent-bound prompt of an empty session, the extension asks the configured classifier model to return one tier label. It evaluates implied scope, investigation, data, ambiguity, constraints, consequences, and synthesis using a deterministic rubric. Pi then switches to that tier's model and thinking level before processing the task. In two-tier mode, exact `standard` output is normalized to `simple`, matching the routing policy for standard-level work when no Standard tier exists. The classifier call has a short timeout and a bounded output allowance that leaves room for reasoning tokens.
 
 If classification fails, the selected tier model cannot be activated, or authentication fails, interactive modes ask whether to stop, use an available adjacent tier, choose a configured tier manually, or continue with the Pi model that was active before routing. No fallback preference is saved. Modes without interactive UI stop automatically.
 

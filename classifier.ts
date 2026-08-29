@@ -78,7 +78,16 @@ Return exactly one lowercase available tier label and nothing else: ${labels.joi
 
 export function parseTierResponse(text: string, allowed: readonly TierName[]): TierName | undefined {
 	const normalized = text.trim().toLowerCase();
-	return allowed.includes(normalized as TierName) ? (normalized as TierName) : undefined;
+	if (allowed.includes(normalized as TierName)) return normalized as TierName;
+	if (
+		normalized === "standard" &&
+		allowed.length === 2 &&
+		allowed[0] === "simple" &&
+		allowed[1] === "complex"
+	) {
+		return "simple";
+	}
+	return undefined;
 }
 
 function combineSignals(signal: AbortSignal | undefined, timeoutMs: number): AbortSignal {
